@@ -1,10 +1,10 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include "pch.h"
-#include <iostream>
-#include <Windows.h>
-#include <TlHelp32.h>
 #include "mem.h"
 #include "proc.h"
+#include <iostream>
+#include <TlHelp32.h>
+#include <Windows.h>
 
 
 #define STR_MERGE_IMPL(a, b) a##b
@@ -44,6 +44,8 @@ public:
     };
 };
 
+typedef char*(__cdecl * _ACPrintF)(char * sFormat, ...);
+_ACPrintF ACPrintF;
 
 DWORD WINAPI HackThread(HMODULE hModule)
 {
@@ -57,6 +59,13 @@ DWORD WINAPI HackThread(HMODULE hModule)
     // Get Module Base Address
 
     uintptr_t moduleBase = (uintptr_t)GetModuleHandle(L"ac_client.exe");
+    
+    //My original acprint offset = 0x6B147
+    
+    ACPrintF = (_ACPrintF)(moduleBase + 0x6B060);
+
+    const char* sFormat = "%s";
+    char* sFormatMutable = const_cast<char*>(sFormat);
 
     bool bRecoil = false;
 
@@ -67,9 +76,22 @@ DWORD WINAPI HackThread(HMODULE hModule)
 
     // Write to memory in loop, so froze values
 
-    while (true)
+    ACPrintF(sFormatMutable, "Hack Loading"); // Print to game message box
+    Sleep(2000);
+    ACPrintF(sFormatMutable, "Hack Loaded");
+
+    ent* localPlayerPtr = *(ent**)(moduleBase + 0x10F4F4);
+
+    // print health & ammo status pre hack
+
+    ACPrintF(sFormatMutable, "Setting health...");
+    ACPrintF(sFormatMutable, "Setting Ammo...");
+    ACPrintF(sFormatMutable, "Negating Cooldowns...");
+    ACPrintF(sFormatMutable, "Press END to unload hack");
+
+    while (moduleBase)
     {
-        ent* localPlayerPtr = *(ent**)(moduleBase + 0x10F4F4);
+        //ent* localPlayerPtr = *(ent**)(moduleBase + 0x10F4F4);
 
         if (localPlayerPtr)
         {
@@ -87,35 +109,6 @@ DWORD WINAPI HackThread(HMODULE hModule)
             localPlayerPtr->assaultCooldown = 0;
             *localPlayerPtr->currentWeapon->ammoPtr = 1337;
 
-            // Write to PlayerEnt
-           /* *(int*)(*localPlayerPtr + 0xF8) = 1337; // Health
-
-            *(int*)(*localPlayerPtr + 0xFC) = 1337; // Armor
-
-            *(int*)(*localPlayerPtr + 0x180) = 0; // Grenade Cooldown
-
-            *(int*)(*localPlayerPtr + 0x160) = 0; // Knife Cooldown
-
-            *(double*)(*localPlayerPtr + 0x164) = 0.1; // Pistol Cooldown
-
-            *(double*)(*localPlayerPtr + 0x174) = 0.1; // Sniper Cooldown
-
-            *(double*)(localPlayerPtr + 0x170) = 0.1; // SMG Cooldown
-
-            *(double*)(localPlayerPtr + 178) = 0.1; // Assault Rifle Cooldown
-
-            *(double*)(*localPlayerPtr + 0x16C) = 0.1; // Shotgun Cooldown
-
-           // *(int*)(*localPlayerPtr + 0x5C) = 50; // LocalPlayer Height
-
-            // Write to WeaponEnt
-            uintptr_t ammoAddr = mem::FindDMAAddy(moduleBase + 0x10f4f4, { 0x374, 0x14, 0x0 }); // Ammo
-            int* ammo = (int*)ammoAddr;
-            *ammo = 1337;
-            
-            // Also can use:
-            *(int*)mem::FindDMAAddy(moduleBase + 0x10f4f4, { 0x374, 0x14, 0x0 }) = 1337; // Ammo
-            */
         }
 
         if (GetAsyncKeyState(VK_END) & 1) // Come out of loop, eject safe
